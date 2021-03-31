@@ -4,7 +4,7 @@ const fs = require('fs');
 
 // Permet de créer une sauce
 exports.createSauce = (req, res, next) => {
-    // stockage des données du FE en objet
+    // stockage des données du Front en objet
     const sauceObj = JSON.parse(req.body.sauce);
     // suppression de l'id auto 
     delete sauceObj._id;
@@ -62,6 +62,49 @@ exports.deleteSauce = (req, res, next) => {
             });
         })
 };
+
+// Gestion des likes et des dislikes
+exports.likeSauce = (req, res, next) => {
+    // Initialisation des constantes
+    const like = req.body.like;
+    const bodyUserId = req.body.userId;
+    const paramId = req.params.id;
+
+    // Gestion du like
+    if(like == 1) { 
+        // $inc : Increments the value of the field by the specified amount
+        // $push : Adds an item to an array.
+        Sauce.updateOne({_id: paramId}, { $inc: { likes: 1}, $push: { usersLiked: bodyUserId}, _id: paramId })
+        .then( () => res.status(200).json({ message: "Vous avez aimé cette sauce" }))
+        .catch( error => res.status(400).json({ error}));
+    // Gestion du dislike
+    } else if(like == -1) { 
+        Sauce.updateOne({_id: paramId}, { $inc: { dislikes: 1}, $push: { usersDisliked: bodyUserId}, _id: paramId })
+        .then( () => res.status(200).json({ message: "Vous n'avez pas aimé cette sauce" }))
+        .catch( error => res.status(400).json({ error}))
+    // Suppression du like ou du dislike de l'utilisateur
+    } else {
+        Sauce.findOne( {_id: paramId})
+        .then( sauce => {
+            // recherche de l'id dans le like
+            if( sauce.usersLiked.indexOf(bodyUserId) != -1){
+                // Si présent on supprime le like
+                // $pull : Removes all array elements that match a specified query.
+                 Sauce.updateOne({_id: paramId}, { $inc: { likes: -1},$pull: { usersLiked: bodyUserId}, _id: paramId })
+                .then( () => res.status(200).json({ message: "Vous n'avez pas aimé cette sauce" }))
+                .catch( error => res.status(400).json({ error}))
+                }
+            // recherche de l'id dans le dislike
+            else if( sauce.usersDisliked.indexOf(bodyUserId) != -1) {
+                // Si présent on supprime le dislike
+                Sauce.updateOne( {_id: paramId}, { $inc: { dislikes: -1 }, $pull: { usersDisliked: bodyUserId}, _id: paramId})
+                .then( () => res.status(200).json({ message: "Vous avez aimé cette sauce" }))
+                .catch( error => res.status(400).json({ error}))
+                }           
+        })      
+        .catch( error => res.status(400).json({ error }))
+    }
+}
 
 // recupération de toutes les sauces
 exports.getAllSauces = (req, res, next) => {
